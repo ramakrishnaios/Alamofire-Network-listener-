@@ -10,10 +10,30 @@ import UIKit
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
-
+    private var rechabilityObserver: ReachabilityHandler?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        ReachabilityHandler.shared.startNetworkReachabilityObserver { status in
+            NotificationCenter.default.post(name: .networkChanged, object: nil)
+            switch status {
+            case .unknown:
+                print("unknown")
+                self.addInternetWarningLabel(text: "unknown")
+            case .notReachable:
+                print("not reachable")
+                self.addInternetWarningLabel(text: "not reachable")
+            case .reachable(.ethernetOrWiFi):
+                print("wifi")
+                self.addInternetWarningLabel(text: "wifi")
+            case .reachable(.cellular):
+                print("cellular")
+                self.addInternetWarningLabel(text: "cellular")
+            case .none:
+                print("none")
+                self.addInternetWarningLabel(text: "none")
+            }
+        }
         return true
     }
 
@@ -34,3 +54,78 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 }
 
+
+extension UIApplication {
+
+    class func topViewController(_ viewController: UIViewController? = UIApplication.shared.keyWindow?.rootViewController) -> UIViewController? {
+        if let nav = viewController as? UINavigationController {
+            return topViewController(nav.visibleViewController)
+        }
+        if let tab = viewController as? UITabBarController {
+            if let selected = tab.selectedViewController {
+                return topViewController(selected)
+            }
+        }
+        if let presented = viewController?.presentedViewController {
+            return topViewController(presented)
+        }
+        return viewController
+    }
+
+    class func topNavigation(_ viewController: UIViewController? = UIApplication.shared.keyWindow?.rootViewController) -> UINavigationController? {
+
+        if let nav = viewController as? UINavigationController {
+            return nav
+        }
+        if let tab = viewController as? UITabBarController {
+            if let selected = tab.selectedViewController {
+                return selected.navigationController
+            }
+        }
+        return viewController?.navigationController
+    }
+    
+    static var buildType: String {
+        #if DEBUG
+            return "Debug"
+        #else
+            return "Release"
+        #endif
+    }
+}
+
+extension AppDelegate {
+    /*
+     Returns the view controller if it is embbedded in Tabbar & Navigation or Presented
+    */
+    func topViewController(in rootViewController: UIViewController?) -> UIViewController? {
+        guard let rootViewController = rootViewController else {
+            return nil
+        }
+        if let tabBarController = rootViewController as? UITabBarController {
+            return topViewController(in: tabBarController.selectedViewController)
+        } else if let navigationController = rootViewController as? UINavigationController {
+            return topViewController(in: navigationController.visibleViewController)
+        } else if let presentedViewController = rootViewController.presentedViewController {
+            return topViewController(in: presentedViewController)
+        }
+        return rootViewController
+    }
+}
+
+extension AppDelegate {
+
+    func addInternetWarningLabel(text: String) {
+        let lblWarning : UILabel = UILabel(frame: CGRect(x: 50, y: 50, width: 150, height: 50))
+        lblWarning.text = text
+        lblWarning.textColor = UIColor.black
+        lblWarning.textAlignment = .center
+        lblWarning.backgroundColor = .lightGray
+        lblWarning.font = UIFont.boldSystemFont(ofSize: 20)
+        UIApplication.topViewController()?.view.addSubview(lblWarning)
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(4), execute: {
+            lblWarning.removeFromSuperview()
+        })
+    }
+
+}
